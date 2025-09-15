@@ -1,0 +1,1 @@
+npm install express cors helmet express-rate-limit compression xss-clean hpp morgan mysql2 bcryptjs jsonwebtoken joi winston
