@@ -1,19 +1,43 @@
-const { Joi, Segments } = require("celebrate");
+const { celebrate, Joi, Segments } = require("celebrate");
 
-const userValidation = {
-  create: {
-    [Segments.BODY]: Joi.object().keys({
-      name: Joi.string().min(3).max(50).required(),
-      email: Joi.string().email().required(),
-      password: Joi.string().min(6).required(),
-    }),
-  },
-  update: {
-    [Segments.BODY]: Joi.object().keys({
-      name: Joi.string().min(3).max(50),
-      email: Joi.string().email(),
-    }),
-  },
-};
+/**
+ * =================================================
+ * @module User Validations
+ * =================================================
+ * Centralized celebrate/Joi validators for user routes
+ */
 
-module.exports = userValidation;
+exports.createUserValidator = celebrate({
+  [Segments.BODY]: Joi.object({
+    username: Joi.string().min(3).max(50).required(),
+    password: Joi.string().min(6).required(),
+    role_id: Joi.number().integer().required(),
+    office_id: Joi.number().integer().optional(),
+    employee_id: Joi.number().integer().optional(),
+  }),
+});
+
+exports.getUserValidator = celebrate({
+  [Segments.PARAMS]: Joi.object({
+    id: Joi.number().integer().required(),
+  }),
+});
+
+exports.updateUserValidator = celebrate({
+  [Segments.PARAMS]: Joi.object({
+    id: Joi.number().integer().required(),
+  }),
+  [Segments.BODY]: Joi.object({
+    username: Joi.string().min(3).max(50).optional(),
+    password: Joi.string().min(6).optional(),
+    role_id: Joi.number().integer().optional(),
+    office_id: Joi.number().integer().optional(),
+    employee_id: Joi.number().integer().optional(),
+  }),
+});
+
+exports.deleteUserValidator = celebrate({
+  [Segments.PARAMS]: Joi.object({
+    id: Joi.number().integer().required(),
+  }),
+});

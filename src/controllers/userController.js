@@ -1,77 +1,145 @@
-/**
- * User Controller
- * - Handles business logic for user routes
- */
-const { pool } = require("../config/db");
-const logger = require("../utils/logger");
+const bcrypt = require("bcryptjs");
+const User = require("../models/userModel");
 
-exports.getAllUsers = async (req, res, next) => {
+// ===============================
+// Create a new user
+// ===============================
+exports.createUser = async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT id, name, email FROM users");
-    res.json({ status: "success", data: rows });
-  } catch (err) {
-    next(err);
-  }
-};
+    const { username, password, role_id, office_id, employee_id } = req.body;
 
-exports.getUserById = async (req, res, next) => {
-  try {
-    const [rows] = await pool.query(
-      "SELECT id, name, email FROM users WHERE id = ?",
-      [req.params.id]
-    );
-
-    if (rows.length === 0) {
-      res.status(404);
-      throw new Error("User not found");
+    // Check if username already exists
+    const existingUser = await User.findByUsername(username);
+    if (existingUser) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Username already exists" });
     }
 
-    res.json({ status: "success", data: rows[0] });
-  } catch (err) {
-    next(err);
-  }
-};
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-exports.createUser = async (req, res, next) => {
-  try {
-    const { name, email, password } = req.body;
-
-    const [result] = await pool.query(
-      "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-      [name, email, password] // ⚠️ hash password in real project
-    );
+    // Insert into DB
+    const userId = await User.createUser({
+      username,
+      password_hash: hashedPassword,
+      role_id,
+      office_id: office_id || null,
+      employee_id: employee_id || null,
+    });
 
     res.status(201).json({
       status: "success",
       message: "User created successfully",
-      userId: result.insertId,
+      userId,
     });
   } catch (err) {
-    next(err);
+    console.error(err);
+    res.status(500).json({ status: "error", message: "Server error" });
   }
 };
 
-exports.updateUser = async (req, res, next) => {
+// ===============================
+// Get all users (optional filter by office)
+// ===============================
+exports.getAllUsers = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const officeId = req.query.office_id || null;
+    const users = await User.getAllUsers(officeId);
 
-    await pool.query("UPDATE users SET name = ?, email = ? WHERE id = ?", [
-      name,
-      email,
-      req.params.id,
-    ]);
-
-    res.json({ status: "success", message: "User updated" });
+    res.status(200).json({
+      status: "success",
+      data: users,
+    });
   } catch (err) {
-    next(err);
+    console.error(err);
+    res.status(500).json({ status: "error", message: "Server error" });
   }
 };
 
-exports.deleteUser = async (req, res, next) => {
+// ===============================
+// Get single user by ID
+// ===============================
+exports.getUserById = async (req, res) => {
   try {
-    await pool.query("DELETE FROM users WHERE id = ?", [req.params.id]);
-    res.json({ status: "success", message: "User deleted" });
+    const userId = req.params.id;
+    const user = await User.getUserById(userId);
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "User not found" });
+    }
+
+    res.status(200).json({ status: "success", data: user });
   } catch (err) {
-    next(err);
+    console.error(err);
+    res.status(500).json({ status: "error", message: "Server error" });
+  }
+};
+
+// ===============================
+// Update user
+// ===============================
+// src/controllers/userController.js
+exports.updateUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { username, password, role_id, office_id, employee_id } = req.body;
+
+    // Check if user exists
+    const user = await User.getUserById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "User not found" });
+    }
+
+    // Hash password if updated
+    let hashedPassword = user.password_hash;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
+    await User.updateUser(userId, {
+      username: username || user.username,
+      password_hash: hashedPassword,
+      role_id: role_id ?? user.role_id,
+      office_id: office_id ?? user.office_id,
+      employee_id: employee_id ?? user.employee_id,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "User updated successfully",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "error", message: "Server error" });
+  }
+};
+
+// ===============================
+// Delete user
+// ===============================
+exports.deleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const user = await User.getUserById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "User not found" });
+    }
+
+    await User.deleteUser(userId);
+
+    res
+      .status(200)
+      .json({ status: "success", message: "User deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "error", message: "Server error" });
   }
 };

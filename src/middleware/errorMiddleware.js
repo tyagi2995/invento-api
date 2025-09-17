@@ -1,27 +1,56 @@
-/**
- * Centralized Error Handling
- * - Catches errors and formats response
- * - Also handles 404 routes
- */
 const logger = require("../utils/logger");
+const { isCelebrateError } = require("celebrate");
 
-// Handle 404 Not Found
 const notFound = (req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);
-  res.status(404);
+  error.statusCode = 404;
   next(error);
 };
 
-// Handle All Errors
 const errorHandler = (err, req, res, next) => {
-  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  /* -------------------------
+   * Handle Celebrate Validation Errors
+   * ------------------------- */
+  if (isCelebrateError(err)) {
+    const errors = [];
 
-  logger.error(`${req.method} ${req.originalUrl} - ${err.message}`);
+    for (const [, joiError] of err.details.entries()) {
+      for (const detail of joiError.details) {
+        errors.push({
+          field: detail.context?.key || detail.path.join("."),
+          message: detail.message.replace(/["]/g, ""), // remove Joi quotes
+        });
+      }
+    }
 
-  res.status(statusCode).json({
+    logger.warn(
+      `Validation failed on ${req.method} ${req.originalUrl} → ${errors
+        .map((e) => `${e.field}: ${e.message}`)
+        .join(" | ")}`
+    );
+
+    return res.status(400).json({
+      status: "fail",
+      message: "Validation failed",
+      errors,
+    });
+  }
+
+  /* -------------------------
+   * Handle Other Errors
+   * ------------------------- */
+  const statusCode = err.statusCode || 500;
+
+  logger.error(
+    `${req.method} ${req.originalUrl} - ${err.message}\n${
+      err.stack && process.env.NODE_ENV === "development" ? err.stack : ""
+    }`
+  );
+
+  return res.status(statusCode).json({
     status: "error",
-    message: err.message,
-    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    message: err.message || "Internal Server Error",
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 };
 

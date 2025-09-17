@@ -18,6 +18,7 @@ const compression = require("compression"); // Compresses response bodies to imp
 const sanitize = require("./src/middleware/sanitize"); // Sanitizes user input from XSS attacks
 const hpp = require("hpp"); // Prevents HTTP parameter pollution
 const morgan = require("morgan"); // Logs HTTP requests in console
+const { errors } = require("celebrate");
 
 /* -------------------- Custom Utilities -------------------- */
 const { connectDB, disconnectDB, getPool } = require("./src/config/db"); // DB connection
@@ -140,6 +141,9 @@ app.get("/", (req, res) => {
 
 /* -------------------- Error Handling Middlewares -------------------- */
 app.use(notFound); // Handles 404 routes
+
+// app.use(errors());
+
 app.use(errorHandler); // Handles thrown errors centrally
 
 /* -------------------- Start Server & Connect DB -------------------- */
