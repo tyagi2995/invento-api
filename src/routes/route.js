@@ -1,21 +1,17 @@
 // src/routes/route.js
 const express = require("express");
-const { errors } = require("celebrate");
-
-// Import module routes
-const userRoutes = require("./userRoutes");
-const loginRoutes = require("./loginRoutes");
-// You can add future modules here:
-// const inventoryRoutes = require("./inventoryRoutes");
-// const officeRoutes = require("./officeRoutes");
+const authenticate = require("../middleware/authenticate");
+const validateRole = require("../middleware/validateRole");
+const { createUser, getUsers } = require("../controllers/userController");
+const {
+  createInventory,
+  getInventories,
+  issueInventory,
+  returnInventory,
+} = require("../controllers/inventoryController");
 
 const router = express.Router();
 
-/**
- * -----------------------------------
- * Default Test Route
- * -----------------------------------
- */
 router.get("/", (req, res) => {
   res.status(200).json({
     status: "success",
@@ -24,27 +20,46 @@ router.get("/", (req, res) => {
   });
 });
 
-/**
- * -----------------------------------
- * Mount Module Routes
- * -----------------------------------
- */
-router.use("/login", loginRoutes);
-router.use("/users", userRoutes);
-// router.use("/inventory", inventoryRoutes);
-// router.use("/offices", officeRoutes);
+// User routes
+router.post(
+  "/users",
+  authenticate,
+  validateRole(["super_admin", "admin"], true),
+  createUser
+);
+router.get(
+  "/users",
+  authenticate,
+  validateRole(["super_admin", "admin"], true),
+  getUsers
+);
 
-/**
- * -----------------------------------
- * Celebrate Error Handler
- * -----------------------------------
- * Handles all Joi validation errors centrally
- */
-router.use(errors());
+// Inventory routes
+router.post(
+  "/inventories",
+  authenticate,
+  validateRole(["super_admin", "admin"], true),
+  createInventory
+);
+router.get(
+  "/inventories",
+  authenticate,
+  validateRole(["super_admin", "admin", "user"], true),
+  getInventories
+);
+router.put(
+  "/inventories/:id/issue",
+  authenticate,
+  validateRole(["super_admin", "admin"], true),
+  issueInventory
+);
+router.put(
+  "/inventories/:id/return",
+  authenticate,
+  validateRole(["super_admin", "admin"], true),
+  returnInventory
+);
 
-/**
- * -----------------------------------
- * Export Router
- * -----------------------------------
- */
+// router.use("/login", require("./loginRoutes"));
+
 module.exports = router;

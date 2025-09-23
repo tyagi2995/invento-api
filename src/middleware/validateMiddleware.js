@@ -1,18 +1,23 @@
-const validate = (schema) => (req, res, next) => {
-  const { error } = schema.validate(req.body, { abortEarly: false });
+const Joi = require("joi");
 
-  if (error) {
-    const errors = error.details.map((d) => ({
-      field: d.context.key,
-      message: d.message,
-    }));
+const validate = (schema) => {
+  return (req, res, next) => {
+    const { error } = schema.validate(req.body, { abortEarly: false });
+    if (error) {
+      const fieldErrors = {};
+      error.details.forEach((err) => {
+        const field = err.path.join(".");
+        fieldErrors[field] = err.message;
+      });
 
-    return res.status(400).json({
-      status: "fail",
-      message: "Validation failed",
-      errors,
-    });
-  }
-
-  next();
+      return res.status(200).json({
+        status: "false",
+        message: "Validation failed",
+        errors: fieldErrors,
+      });
+    }
+    next();
+  };
 };
+
+module.exports = validate;

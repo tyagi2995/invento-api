@@ -1,55 +1,43 @@
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const User = require("../models/loginModel");
+const { User, Role, Office } = require("../models/index");
 
-exports.loginUser = async (req, res) => {
+exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1. Find user
-    const user = await User.findByEmail(email);
-    if (!user) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "Invalid email or password" });
-    }
+    // 1. Find user with role and office
+    const user = await User.findOne({
+      where: { email },
+      include: [
+        { model: Role, attributes: ["name"] },
+        { model: Office, attributes: ["id", "name"] },
+      ],
+    });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-    // 2. Validate password
-    const validPass = await bcrypt.compare(password, user.password);
-    if (!validPass) {
-      return res
-        .status(401)
-        .json({ status: "error", message: "Invalid email or password" });
-    }
+    // 2. Compare password
+    const isMatch = await user.validPassword(password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid credentials" });
 
-    // 3. Create token with user info
+    // 3. Sign JWT with role and office
     const token = jwt.sign(
-      {
-        userId: user.id,
-        roleId: user.role_id,
-        officeId: user.office_id,
-        permissions: user.permissions ? user.permissions.split(",") : [],
-      },
+      { id: user.id, roleId: user.roleId, officeId: user.officeId },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
-    // 4. Response
-    res.status(200).json({
-      status: "success",
-      message: "Login successful",
+    res.json({
       token,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role_name,
-        officeId: user.office_id,
-        permissions: user.permissions ? user.permissions.split(",") : [],
+        role: user.role.name,
+        office: user.office.name,
       },
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ status: "error", message: "Server error" });
+    res.status(500).json({ message: err.message });
   }
 };

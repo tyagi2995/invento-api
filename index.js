@@ -18,12 +18,15 @@ const compression = require("compression"); // Compresses response bodies to imp
 const sanitize = require("./src/middleware/sanitize"); // Sanitizes user input from XSS attacks
 const hpp = require("hpp"); // Prevents HTTP parameter pollution
 const morgan = require("morgan"); // Logs HTTP requests in console
-const { errors } = require("celebrate");
-
+const sequelize = require("./src/config/sequelize"); // Sequelize instance
 /* -------------------- Custom Utilities -------------------- */
 const { connectDB, disconnectDB, getPool } = require("./src/config/db"); // DB connection
 const logger = require("./src/utils/logger"); // Custom logger (Winston or similar)
 const { errorHandler, notFound } = require("./src/middleware/errorMiddleware"); // Custom error middleware
+
+// models initilize here
+// const User = require("./src/models/users");
+const User = require("./src/models/users");
 
 /* -------------------- Initialize App -------------------- */
 const app = express();
@@ -151,8 +154,12 @@ const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
   try {
-    await connectDB(); // Connect to MySQL
+    await connectDB(); // your MySQL pool connection (if still needed)
     logger.info("✅ Database connected successfully");
+
+    // 🔹 Sync Sequelize models (creates tables if not exist)
+    await sequelize.sync({ alter: true });
+    logger.info("✅ Sequelize models synced");
 
     const server = app.listen(PORT, "0.0.0.0", () => {
       logger.info(
