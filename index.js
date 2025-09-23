@@ -26,7 +26,7 @@ const { errorHandler, notFound } = require("./src/middleware/errorMiddleware"); 
 
 // models initilize here
 // const User = require("./src/models/users");
-const User = require("./src/models/users");
+const User = require("./src/models/index");
 
 /* -------------------- Initialize App -------------------- */
 const app = express();

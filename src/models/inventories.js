@@ -1,6 +1,6 @@
 // models/Inventory.js
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/sequilize"); // adjust path
+const sequelize = require("../config/sequelize"); // adjust path
 
 const Inventory = sequelize.define(
   "Inventory",
