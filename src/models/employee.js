@@ -1,101 +1,38 @@
+// Employee Model: Represents an employee in the organization
+// Why: Stores personal and job-related info for each staff member
+// Benefit: Enables HR management, assignment of inventory, and reporting
 const { DataTypes } = require("sequelize");
-const bcrypt = require("bcryptjs");
-const sequelize = require("../config/sequelize");
 
-const Employee = sequelize.define(
-  "Employee",
-  {
+module.exports = (sequelize, DataTypes) => {
+  // Define Employee table schema
+  const Employee = sequelize.define("Employee", {
+    // id: {
+    //   type: DataTypes.UUID,
+    //   defaultValue: DataTypes.UUIDV4,
+    //   primaryKey: true,
+    // },
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
       primaryKey: true,
     },
+    first_name: { type: DataTypes.STRING, allowNull: false }, // Employee first name
+    last_name: { type: DataTypes.STRING, allowNull: false }, // Employee last name
+    mobile_number: { type: DataTypes.STRING, unique: true }, // Unique mobile number
+    date_of_birth: { type: DataTypes.DATEONLY }, // Date of birth
+    gender: { type: DataTypes.ENUM("male", "female", "other") }, // Gender
+    hire_date: { type: DataTypes.DATEONLY }, // Date of joining
+  });
 
-    first_name: {},
-    last_name: {},
-    date_of_birth: {},
-    gender: {},
-    mobile_number: {},
-    city: {},
-    state: {},
-    country: {},
-    address: {},
-    pincode: {},
-    employee_code: {},
-    department: {},
-    designation: {},
-    employment_type: {},
-    reporting_manager: {},
+  // Set up associations (relationships)
+  Employee.associate = (models) => {
+    // Each employee is linked to a user, office, department, and designation
+    Employee.belongsTo(models.User, { foreignKey: "user_id" });
+    Employee.belongsTo(models.Office, { foreignKey: "office_id" });
+    Employee.belongsTo(models.Department, { foreignKey: "department_id" });
+    Employee.belongsTo(models.Designation, { foreignKey: "designation_id" });
+  };
 
-    mobileNumber: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-    },
-
-    userId: {},
-
-    date_of_joining: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
-
-    isActive: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true,
-    },
-
-    officeId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: "offices", // Make sure table name is correct
-        key: "id",
-      },
-      onUpdate: "CASCADE",
-      onDelete: "SET NULL",
-    },
-
-    roleId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      references: {
-        model: "roles", // Make sure table name is correct
-        key: "id",
-      },
-      onUpdate: "CASCADE",
-      onDelete: "SET NULL",
-    },
-  },
-  {
-    tableName: "employees", // you can rename table to "employees"
-    timestamps: true,
-
-    hooks: {
-      beforeCreate: async (employee) => {
-        if (employee.password) {
-          const salt = await bcrypt.genSalt(10);
-          employee.password = await bcrypt.hash(employee.password, salt);
-        }
-      },
-      beforeUpdate: async (employee) => {
-        if (employee.changed("password")) {
-          const salt = await bcrypt.genSalt(10);
-          employee.password = await bcrypt.hash(employee.password, salt);
-        }
-      },
-    },
-  }
-);
-
-// 🔑 Method to compare password
-Employee.prototype.validPassword = async function (password) {
-  return await bcrypt.compare(password, this.password);
+  // Return the Employee model
+  return Employee;
 };
-
-module.exports = Employee;

@@ -1,40 +1,68 @@
 /**
  * =====================================================
- * Invento API Server - Entry Point
- * Node.js + Express + MySQL backend for React (Vite)
- * Includes security, logging, validation & error handling
+ * Invento API Server - Main Entry Point
+ *
+ * Why use this file:
+ *   - Centralizes all configuration, middleware, and route setup for the backend
+ *   - Ensures maintainability, scalability, and security for the inventory system
+ *
+ * Benefits:
+ *   - Modular, well-documented, and easy to extend
+ *   - Handles security, logging, validation, error handling, and graceful shutdown
+ *
+ * Tech Stack: Node.js + Express + MySQL (Sequelize ORM)
  * =====================================================
  */
 
-/* -------------------- Load Environment Variables -------------------- */
-require("dotenv").config(); // Loads variables from .env file into process.env
+// =============================
+// Load Environment Variables
+// =============================
+// Why: Allows configuration via .env file instead of hardcoding secrets
+require("dotenv").config();
 
-/* -------------------- Core & Security Middleware -------------------- */
-const express = require("express"); // Web framework for handling HTTP requests
-const cors = require("cors"); // Enables cross-origin requests (needed for frontend)
-const helmet = require("helmet"); // Sets various HTTP headers to secure app
-const rateLimit = require("express-rate-limit"); // Limits repeated requests from same IP
-const compression = require("compression"); // Compresses response bodies to improve speed
-const sanitize = require("./src/middleware/sanitize"); // Sanitizes user input from XSS attacks
-const hpp = require("hpp"); // Prevents HTTP parameter pollution
-const morgan = require("morgan"); // Logs HTTP requests in console
-const sequelize = require("./src/config/sequelize"); // Sequelize instance
-/* -------------------- Custom Utilities -------------------- */
-const { connectDB, disconnectDB, getPool } = require("./src/config/db"); // DB connection
-const logger = require("./src/utils/logger"); // Custom logger (Winston or similar)
-const { errorHandler, notFound } = require("./src/middleware/errorMiddleware"); // Custom error middleware
+// =============================
+// Core & Security Middleware
+// =============================
+// Why: Protects the API, enables CORS, logging, and request parsing
+const express = require("express"); // Express: Fast, minimalist web framework
+const cors = require("cors"); // CORS: Allows frontend on other origins to access API
+const helmet = require("helmet"); // Helmet: Sets secure HTTP headers (prevents common attacks)
+const rateLimit = require("express-rate-limit"); // Rate limiting: Prevents brute force & DoS
+const compression = require("compression"); // Compression: Reduces response size for speed
+const sanitize = require("./src/middleware/sanitize"); // Sanitizes user input (prevents XSS)
+const hpp = require("hpp"); // HPP: Prevents HTTP parameter pollution
+const morgan = require("morgan"); // Morgan: HTTP request logger
+const sequelize = require("./src/config/sequelize"); // Sequelize: ORM for MySQL
 
-// models initilize here
-// const User = require("./src/models/users");
-const User = require("./src/models/index");
+// =============================
+// Custom Utilities & Error Handling
+// =============================
+const { connectDB, disconnectDB, getPool } = require("./src/config/db"); // DB connection helpers
+const logger = require("./src/utils/logger"); // Winston-based logger for file/console
+const { errorHandler, notFound } = require("./src/middleware/errorMiddleware"); // Centralized error handling
 
-/* -------------------- Initialize App -------------------- */
+// =============================
+// JWT Authentication Middleware
+// =============================
+// Why: Verifies JWT on every request (except /login, /register, /health)
+// Benefit: Secures all protected routes, ensures only authenticated users can access API
+const authMiddleware = require("./src/middleware/authMiddleware");
+
+// =============================
+// Initialize Express App
+// =============================
 const app = express();
 
-/* -------------------- Set Trust Proxy (for req.ip behind proxies) -------------------- */
+// =============================
+// Trust Proxy
+// =============================
+// Why: Ensures correct client IPs when behind proxies/load balancers
 app.set("trust proxy", 1);
 
-/* -------------------- Helmet Security -------------------- */
+// =============================
+// Security Headers (Helmet)
+// =============================
+// Why: Sets secure HTTP headers to protect against common vulnerabilities
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -49,7 +77,10 @@ app.use(
   })
 );
 
-/* -------------------- CORS Configuration -------------------- */
+// =============================
+// CORS Configuration
+// =============================
+// Why: Allows frontend apps on different ports/origins to access the API
 const allowedOrigins =
   process.env.NODE_ENV === "production"
     ? [process.env.FRONTEND_URL]
@@ -72,7 +103,10 @@ app.use(
   })
 );
 
-/* -------------------- Rate Limiting -------------------- */
+// =============================
+// Rate Limiting
+// =============================
+// Why: Prevents abuse and DoS attacks by limiting requests per IP
 app.use(
   "/api",
   rateLimit({
@@ -90,22 +124,38 @@ app.use(
   })
 );
 
-/* -------------------- Other Security Middlewares -------------------- */
-app.use(sanitize); // Clean user input from malicious HTML/JS
+// =============================
+// Other Security Middlewares
+// =============================
+// sanitize: Cleans user input from XSS
+// hpp: Prevents HTTP parameter pollution
+app.use(sanitize);
 app.use(
   hpp({
-    whitelist: ["sort", "page", "limit", "fields", "search"], // allowed query params
+    whitelist: ["sort", "page", "limit", "fields", "search"],
   })
 );
 
-/* -------------------- Body Parsing & Compression -------------------- */
-app.use(express.json({ limit: "20kb" })); // Parse JSON with 20kb limit
-app.use(express.urlencoded({ extended: true, limit: "20kb" })); // Parse form data
-app.use(compression()); // Gzip compression
+// =============================
+// Body Parsing & Compression
+// =============================
+// Why: Parses incoming requests and compresses responses for performance
+app.use(express.json({ limit: "20kb" }));
+app.use(express.urlencoded({ extended: true, limit: "20kb" }));
+app.use(compression());
 
-/* -------------------- Request Logging -------------------- */
+// =============================
+// Apply JWT Auth Middleware
+// =============================
+// This will verify JWT for all requests except /login, /register, /health
+app.use(authMiddleware);
+
+// =============================
+// Request Logging
+// =============================
+// Why: Logs all requests for debugging and monitoring
 if (process.env.NODE_ENV === "development") {
-  app.use(morgan("dev")); // Colored concise logs for dev
+  app.use(morgan("dev")); // Dev: concise, colored logs
 } else {
   app.use(
     morgan("combined", {
@@ -114,7 +164,7 @@ if (process.env.NODE_ENV === "development") {
   );
 }
 
-// Custom logger: Logs every incoming request (method, path, IP)
+// Custom logger: Logs every incoming request (method, path, IP, User-Agent)
 app.use((req, res, next) => {
   logger.info(
     `${req.method} ${req.path} - IP: ${req.ip} - User-Agent: ${req.get(
@@ -124,15 +174,24 @@ app.use((req, res, next) => {
   next();
 });
 
-/* -------------------- API Routes -------------------- */
-const apiRoutes = require("./src/routes/route"); // All API endpoints
+// =============================
+// API Routes
+// =============================
+// Why: Modularizes all API endpoints under /api for maintainability
+const apiRoutes = require("./src/routes/route");
 app.use("/api", apiRoutes);
 
-/* -------------------- Health Check Endpoint -------------------- */
+// =============================
+// Health Check Endpoint
+// =============================
+// Why: Provides a simple endpoint to check server and DB status
 const healthRoutes = require("./src/routes/healthRoutes");
 app.use("/health", healthRoutes);
 
-/* -------------------- Root Info Endpoint -------------------- */
+// =============================
+// Root Info Endpoint
+// =============================
+// Why: Welcome/info endpoint for quick API check
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "success",
@@ -142,32 +201,39 @@ app.get("/", (req, res) => {
   });
 });
 
-/* -------------------- Error Handling Middlewares -------------------- */
+// =============================
+// Error Handling Middlewares
+// =============================
+// Why: Catches 404s and all thrown errors for consistent API responses
 app.use(notFound); // Handles 404 routes
-
-// app.use(errors());
-
 app.use(errorHandler); // Handles thrown errors centrally
 
-/* -------------------- Start Server & Connect DB -------------------- */
+// =============================
+// Start Server & Connect DB
+// =============================
+// Why: Ensures DB is connected, models are synced, and server is robust to errors
 const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
   try {
-    await connectDB(); // your MySQL pool connection (if still needed)
+    // Ensure DB connection first (MySQL pool)
+    await connectDB();
     logger.info("✅ Database connected successfully");
+    // Import models to sync
+    require("./src/models/index");
 
-    // 🔹 Sync Sequelize models (creates tables if not exist)
+    // Sync Sequelize models (auto-migrate schema)
     await sequelize.sync({ alter: true });
     logger.info("✅ Sequelize models synced");
 
+    // Start Express server
     const server = app.listen(PORT, "0.0.0.0", () => {
       logger.info(
         `🚀 Invento API running in ${process.env.NODE_ENV} on port ${PORT}`
       );
     });
 
-    /* Graceful Shutdown */
+    // Graceful Shutdown: Ensures clean exit on SIGTERM/SIGINT
     const shutdown = () => {
       logger.info("Received shutdown signal, closing server...");
       server.close(() => {
@@ -183,7 +249,7 @@ const startServer = async () => {
     process.on("SIGTERM", shutdown);
     process.on("SIGINT", shutdown);
 
-    // Handle Uncaught Errors
+    // Handle Uncaught Errors: Prevents server from hanging on fatal errors
     process.on("unhandledRejection", (err) => {
       logger.error("UNHANDLED REJECTION 💥", err.message);
       shutdown();

@@ -1,1 +1,33 @@
-npm install express cors helmet express-rate-limit compression xss-clean hpp morgan mysql2 bcryptjs jsonwebtoken joi winston
+
+Invento API - Multi-Office Inventory Management System
+=====================================================
+
+This project is a Node.js + Express backend for managing inventory across multiple offices, departments, and roles. It supports consumable, reusable, and shared items, advanced search/filter/reporting, and secure authentication.
+
+## Features
+- Multi-office, department, and employee management
+- Item lifecycle tracking (purchase, issue, return, repair, scrap)
+- Serial-number and quantity-based inventory
+- Role-based access (Employee, Manager, Store, Admin)
+- JWT authentication and security middleware
+- Advanced search, filter, and reporting APIs
+
+## Setup Instructions
+1. Clone the repository
+2. Install dependencies:
+	```
+	npm install express cors helmet express-rate-limit compression xss-clean hpp morgan mysql2 bcryptjs jsonwebtoken joi winston
+	```
+3. Configure your `.env` file with database and JWT settings
+4. Start the server:
+	```
+	npm start
+	```
+
+## Usage
+- Use the `/api` endpoints for inventory operations
+- Use `/login` and `/register` for authentication
+- Use `/health` for server and DB status
+
+## Documentation
+See `PROJECT_CONTEXT.md` and `TO_DO_LIST.md` for full requirements and development flow.
